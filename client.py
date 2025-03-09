@@ -2,20 +2,25 @@ import socket, json
 import uuid, threading
 
 server=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.connect(("127.0.0.1", 7777))
+server.connect(("minecraft.dpsrkp.fun", 25565))
 
 connections={}
 exposing_server=("127.0.0.1", 25565)
 
+queue_lock=threading.Lock()
+
 def reliable_send(client, message: bytes):
-    message_length_in_bytes=len(message).to_bytes(4, "little", signed=False)
+    message_length_in_bytes=len(message).to_bytes(16, "little", signed=False)
+    queue_lock.acquire()
     try:
         client.send(message_length_in_bytes+message)
+        queue_lock.release()
     except Exception as e:
+        queue_lock.release()
         raise e
 
 def reliable_read(client):
-    message_length=int.from_bytes(recv_n_bytes(client, 4), "little", signed=False)
+    message_length=int.from_bytes(recv_n_bytes(client, 16), "little", signed=False)
     message=recv_n_bytes(client, message_length)
     return message
 

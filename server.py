@@ -9,6 +9,7 @@ forwardto_client: socket.socket=None
 connections={}
 forwarding_clients={}
 
+queue_lock=threading.Lock()
 
 def further_forwarder(client: socket.socket, id):
 
@@ -75,10 +76,15 @@ def back_forwarder():
 
 def reliable_send(client, message: bytes):
     global forwardto_client
-    message_length_in_bytes=len(message).to_bytes(4, "little", signed=False)
+    message_length_in_bytes=len(message).to_bytes(16, "little", signed=False)
+    queue_lock.acquire()
     try:
         client.send(message_length_in_bytes+message)
+        queue_lock.release()
     except Exception as e:
+        queue_lock.release()
+        import traceback
+        traceback.print_exc()
         forwardto_client=None
         for x in list(connections.values()):
             try:
@@ -102,7 +108,7 @@ def recv_n_bytes(client, n) -> bytes:
     return data
 
 def reliable_read(client):
-    message_length=int.from_bytes(recv_n_bytes(client, 4), "little", signed=False)
+    message_length=int.from_bytes(recv_n_bytes(client, 16), "little", signed=False)
     message=recv_n_bytes(client, message_length)
     return message
 
